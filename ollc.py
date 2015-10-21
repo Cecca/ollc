@@ -6,6 +6,13 @@ from __future__ import absolute_import, division, print_function
 #from builtins import *
 
 import subprocess
+
+try:
+    from subprocess import DEVNULL # py3k
+except ImportError:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
+
 import os
 import sys
 ## TODO: Investigate YAML (needs additional dependency)
@@ -14,6 +21,20 @@ import json
 OPTIONS = {'--rev': 'openlilylib_revision'}
 
 class OpenLilyLibRepo(object):
+
+    @staticmethod
+    def at_revision(revision):
+        repo = OpenLilyLibRepo()
+        if not repo.has_revision(revision):
+            print("Updating OpenLilyLib repository information")
+            repo.clone_if_needed()
+            ## Checkout master to avoid errors due to a pull in
+            ## detached head state.
+            repo.checkout('master')
+            repo.pull()
+        repo.checkout(revision)
+        return repo
+
     def __init__(self):
         self.local_repo = os.path.expanduser('~/.oll/openlilylib')
         self.local_git_dir = os.path.join(self.local_repo, '.git')
@@ -24,8 +45,11 @@ class OpenLilyLibRepo(object):
         command.append('--work-tree={}'.format(self.local_repo))
         command.append('--git-dir={}'.format(self.local_git_dir))
         command.extend(args)
-        out_mode = subprocess.PIPE if capture_output else subprocess.PIPE
-        process = subprocess.Popen(command, stdout=out_mode)
+        out_mode = subprocess.PIPE if capture_output else DEVNULL
+        process = subprocess.Popen(command,
+                                   stdout=out_mode,
+                                   stderr=out_mode,
+                                   close_fds=True)
         output, _ = process.communicate()
         if process.returncode != 0:
             raise RuntimeError(
@@ -34,6 +58,11 @@ class OpenLilyLibRepo(object):
                     ' '.join(command)))
         else:
             return output
+
+    def has_revision(self, revision):
+        revlist = self.git(['rev-list', '--all'], capture_output=True)\
+                      .decode().split('\n')
+        return revision in revlist
 
     def has_clone(self):
         return os.path.isdir(self.local_repo)
@@ -51,7 +80,6 @@ class OpenLilyLibRepo(object):
             self.clone()
 
     def pull(self):
-        self.checkout('master')
         self.git(['pull'])
 
     def checkout(self, revision):
@@ -70,13 +98,8 @@ class LilypondCommand(object):
 
     def __init__(self, config):
         self.oll_revision = config['openlilylib_revision']
-        self.oll_repo = OpenLilyLibRepo()
-        self.oll_repo.clone_if_needed()
-        self.oll_repo.pull()
-        self.oll_repo.checkout(self.oll_revision)
-        self.oll_revision = self.oll_repo.current_revision()
-        print("Using OpenLilyLib revision",
-              self.oll_revision)
+        self.oll_repo = OpenLilyLibRepo.at_revision(self.oll_revision)
+        print("Using OpenLilyLib revision", self.oll_revision)
         self.persist_config()
 
     @staticmethod
@@ -131,12 +154,11 @@ class LilypondCommand(object):
 
     def run(self, args):
         ## FIXME make lilypond version configurable
-        command = ['/opt/lilypond-2.19/bin/lilypond']
+        command = ['lilypond']
         for include_dir in self.oll_repo.include_dirs():
             command.extend(['-I', include_dir])
         arguments = LilypondCommand.filter_lily_args(args)
         command.extend(arguments)
-        #print("Running command\n$ {0}".format(command))
         subprocess.call(command)
 
 
