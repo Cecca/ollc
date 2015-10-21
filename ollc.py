@@ -99,6 +99,7 @@ class LilypondCommand(object):
     def __init__(self, config):
         self.oll_revision = config['openlilylib_revision']
         self.oll_repo = OpenLilyLibRepo.at_revision(self.oll_revision)
+        self.oll_revision = self.oll_repo.current_revision()
         print("Using OpenLilyLib revision", self.oll_revision)
         self.persist_config()
 
