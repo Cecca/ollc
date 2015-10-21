@@ -58,7 +58,8 @@ class OpenLilyLibRepo(object):
         self.git(['checkout', revision])
 
     def current_revision(self):
-        return self.git(['rev-parse', 'HEAD'], capture_output=True)
+        return self.git(['rev-parse', 'HEAD'],
+                        capture_output=True).decode().strip()
 
     def include_dirs(self):
         return [self.local_repo,
@@ -94,7 +95,7 @@ class LilypondCommand(object):
             with open(LilypondCommand.config_file(), 'r') as conf_f:
                 json_conf = json.load(conf_f)
                 for k in json_conf.keys():
-                    config[k] = json_conf[k].encode('ascii').strip()
+                    config[k] = json_conf[k]
 
         # Load from argument list
         for k in OPTIONS.keys():
