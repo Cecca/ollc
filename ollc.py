@@ -19,12 +19,12 @@ class OpenLilyLibRepo(object):
         self.local_git_dir = os.path.join(self.local_repo, '.git')
         self.remote_repo = 'https://github.com/openlilylib/openlilylib.git'
 
-    def git(self, args, git_dir=None, capture_output=False):
+    def git(self, args, capture_output=False):
         command = ['git']
-        if git_dir is not None:
-            command.append('--git-dir={}'.format(git_dir))
+        command.append('--work-tree={}'.format(self.local_repo))
+        command.append('--git-dir={}'.format(self.local_git_dir))
         command.extend(args)
-        out_mode = subprocess.PIPE if capture_output else subprocess.STDOUT
+        out_mode = subprocess.PIPE if capture_output else subprocess.PIPE
         process = subprocess.Popen(command, stdout=out_mode)
         output, _ = process.communicate()
         if process.returncode != 0:
@@ -40,24 +40,25 @@ class OpenLilyLibRepo(object):
 
     def clone(self):
         print("Cloning the repository")
-        self.git(['clone',
-                  '--progress',
-                  self.remote_repo,
-                  self.local_repo])
+        subprocess.call(['git',
+                         'clone',
+                         '--progress',
+                         self.remote_repo,
+                         self.local_repo])
 
     def clone_if_needed(self):
         if not self.has_clone():
             self.clone()
 
     def pull(self):
-        self.git(['pull'], git_dir=self.local_git_dir)
+        self.checkout('master')
+        self.git(['pull'])
 
     def checkout(self, revision):
-        self.git(['checkout', revision], git_dir=self.local_git_dir)
+        self.git(['checkout', revision])
 
     def current_revision(self):
-        return self.git(['rev-parse', 'HEAD'],
-                        git_dir=self.local_git_dir, capture_output=True)
+        return self.git(['rev-parse', 'HEAD'], capture_output=True)
 
     def include_dirs(self):
         return [self.local_repo,
@@ -70,7 +71,7 @@ class LilypondCommand(object):
         self.oll_revision = config['openlilylib_revision']
         self.oll_repo = OpenLilyLibRepo()
         self.oll_repo.clone_if_needed()
-        #self.oll_repo.pull()
+        self.oll_repo.pull()
         self.oll_repo.checkout(self.oll_revision)
         self.oll_revision = self.oll_repo.current_revision()
         print("Using OpenLilyLib revision",
@@ -93,7 +94,7 @@ class LilypondCommand(object):
             with open(LilypondCommand.config_file(), 'r') as conf_f:
                 json_conf = json.load(conf_f)
                 for k in json_conf.keys():
-                    config[k] = json_conf[k]
+                    config[k] = json_conf[k].encode('ascii').strip()
 
         # Load from argument list
         for k in OPTIONS.keys():
@@ -106,17 +107,35 @@ class LilypondCommand(object):
     @staticmethod
     def from_config(arglist):
         config = LilypondCommand.load_config(arglist)
-        LilypondCommand(config)
+        return LilypondCommand(config)
 
     def persist_config(self):
         with open(LilypondCommand.config_file(), 'w') as out:
-            json.dump({'openlilylib_revision': self.oll_revision}, out)
+            json.dump({
+                'openlilylib_revision': self.oll_revision
+            }, out)
+
+    @staticmethod
+    def filter_lily_args(arglist):
+        filtered = list(arglist)
+        for opt in OPTIONS.keys():
+            if opt in filtered:
+                idx = filtered.index(opt)
+                # delete the option
+                del filtered[idx]
+                # delete the value (it's the same index because
+                # the list length changes)
+                del filtered[idx]
+        return filtered
 
     def run(self, args):
-        command = ['lilypond']
+        ## FIXME make lilypond version configurable
+        command = ['/opt/lilypond-2.19/bin/lilypond']
         for include_dir in self.oll_repo.include_dirs():
             command.extend(['-I', include_dir])
-        command.extend(args)
+        arguments = LilypondCommand.filter_lily_args(args)
+        command.extend(arguments)
+        #print("Running command\n$ {0}".format(command))
         subprocess.call(command)
 
 
