@@ -60,6 +60,8 @@ class OpenLilyLibRepo(object):
             return output
 
     def has_revision(self, revision):
+        if not self.has_clone():
+            return False
         revlist = self.git(['rev-list', '--all'], capture_output=True)\
                       .decode().split('\n')
         return revision in revlist
