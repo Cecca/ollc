@@ -29,6 +29,9 @@ except ImportError:
 OPTIONS = {'--rev': {'section': 'repository',
                      'option':  'revision'}}
 
+## The upstream repository from which we want to clone OpenLilyLib
+UPSTREAM_REPOSITORY = 'https://github.com/openlilylib/openlilylib.git'
+
 class OpenLilyLibRepo(object):
     """The (local) repository of OpenLilyLib code.
 
@@ -67,7 +70,7 @@ class OpenLilyLibRepo(object):
     def __init__(self):
         self.local_repo = os.path.expanduser('~/.oll/openlilylib')
         self.local_git_dir = os.path.join(self.local_repo, '.git')
-        self.remote_repo = 'https://github.com/openlilylib/openlilylib.git'
+        self.remote_repo = UPSTREAM_REPOSITORY
 
     def git(self, args, capture_output=False):
         """Runs git on the local OpenLilyLib clone. Set capture_output to True to
