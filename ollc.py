@@ -23,9 +23,8 @@ except ImportError:
     # python 2
     from ConfigParser import ConfigParser
 
-## This is a mapping between command line options and the name with which they
-## are saved in the JSON file. This allows to automatically set options from
-## both the command line and the saved JSON configuration.
+## This is a mapping between command line options and the name and section with
+## which they are saved in the configuration file.
 OPTIONS = {'--rev': {'section': 'repository',
                      'option':  'revision'}}
 
