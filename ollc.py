@@ -235,8 +235,10 @@ class LilypondCommand(object):
         command.extend(arguments)
         subprocess.call(command)
 
-
-if __name__ == "__main__":
+def main():
     arguments = sys.argv[1:]
     lilycmd = LilypondCommand.from_config(arguments)
     lilycmd.run(arguments)
+
+if __name__ == "__main__":
+    main()
