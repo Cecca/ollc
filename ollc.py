@@ -8,8 +8,6 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import subprocess
-import json
-
 
 ## subprocess.DEVNULL is defined only in python3. If we fail to import it
 ## (i.e. we are on python2) we define it manually.
@@ -18,10 +16,18 @@ try:
 except ImportError:
     DEVNULL = open(os.devnull, 'wb')
 
+try:
+    # py3k
+    from configparser import ConfigParser
+except ImportError:
+    # python 2
+    from ConfigParser import ConfigParser
+
 ## This is a mapping between command line options and the name with which they
 ## are saved in the JSON file. This allows to automatically set options from
 ## both the command line and the saved JSON configuration.
-OPTIONS = {'--rev': 'openlilylib_revision'}
+OPTIONS = {'--rev': {'section': 'repository',
+                     'option':  'revision'}}
 
 class OpenLilyLibRepo(object):
     """The (local) repository of OpenLilyLib code.
@@ -135,7 +141,7 @@ class LilypondCommand(object):
     """Wrapper for the lilypond command."""
 
     def __init__(self, config):
-        self.oll_revision = config['openlilylib_revision']
+        self.oll_revision = config['repository']['revision']
         self.oll_repo = OpenLilyLibRepo.at_revision(self.oll_revision)
         self.oll_revision = self.oll_repo.current_revision()
         print("Using OpenLilyLib revision", self.oll_revision)
@@ -148,7 +154,7 @@ class LilypondCommand(object):
         Returns the name of the configuration file in the directory in which
         this script is executed
         """
-        return os.path.join(os.curdir, '.ollc.json')
+        return os.path.join(os.curdir, 'ollc.conf')
 
     @staticmethod
     def load_config(arglist):
@@ -163,21 +169,24 @@ class LilypondCommand(object):
 
         # Define defaults
         config = {
-            'openlilylib_revision': 'master'
+            'repository': {'revision': 'master'}
         }
 
         # Load from file
         if os.path.isfile(LilypondCommand.config_file()):
-            with open(LilypondCommand.config_file(), 'r') as conf_f:
-                json_conf = json.load(conf_f)
-                for k in json_conf.keys():
-                    config[k] = json_conf[k]
+            config_file = ConfigParser()
+            config_file.read(LilypondCommand.config_file())
+            for s in config_file.sections():
+                if s not in config:
+                    config[s] = dict()
+                for k in config_file.options(s):
+                    config[s][k] = config_file.get(s, k)
 
         # Load from argument list
         for k in OPTIONS.keys():
             if k in arglist:
                 val = arglist[arglist.index(k) + 1]
-                config[OPTIONS[k]] = val
+                config[OPTIONS[k]['section']][OPTIONS[k]['option']] = val
 
         return config
 
@@ -190,9 +199,10 @@ class LilypondCommand(object):
     def persist_config(self):
         """Save the current command configuration to 'self.config_file()'"""
         with open(LilypondCommand.config_file(), 'w') as out:
-            json.dump({
-                'openlilylib_revision': self.oll_revision
-            }, out)
+            config = ConfigParser()
+            config.add_section('repository')
+            config.set('repository', 'revision', self.oll_revision)
+            config.write(out)
 
     @staticmethod
     def filter_lily_args(arglist):
