@@ -16,6 +16,9 @@ from breaking changes. Thus, `ollc` provides a way to
 	same score.
   - Include the appropriate directories in lilypond's search path.
 
+For a motivating example, see this
+[blog post](http://www.dei.unipd.it/~ceccarel/blog/lilypond/2015/11/04/managing-openlilylib-versions.html).
+
 Installation
 ------------
 
@@ -27,6 +30,8 @@ Just clone this repository somewhere
 And then link (or copy) the `ollc` script somewhere in your path
 
     $ ln -s ~/programs/ollc/ollc ~/bin/ollc
+
+As of now, `ollc` is tested only on Linux.
 
 Tutorial
 --------
